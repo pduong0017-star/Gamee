@@ -1,0 +1,6 @@
+{
+  "name": "Nhất Niệm Vô Cực — Tu Tiên Truyền Kỳ",
+  "description": "Trò chơi nhập vai hành động và tu tiên nhàn rỗi lấy cảm hứng từ Nhất Niệm Tiêu Dao và Vô Cực Tiên Đồ, tích hợp Thiên Cơ Các Gemini 4 Carbon.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

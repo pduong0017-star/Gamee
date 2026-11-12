@@ -1,0 +1,60 @@
+name: Build Nhất Niệm Vô Cực App (Android APK & Web PWA)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-web-and-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies & Run Unit Tests
+        run: |
+          npm install
+          npx --yes tsx --test src/game/rules.test.ts
+
+      - name: Build Production Web & PWA Bundle
+        run: npm run build
+
+      - name: Upload Web PWA Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nhat-niem-vo-cuc-web-pwa
+          path: dist/
+
+      - name: Setup Java 21 for Android APK Packaging
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Package Android APK via Capacitor
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
+          npx cap add android || true
+          npx cap sync android
+          cd android && chmod +x gradlew && ./gradlew assembleDebug
+
+      - name: Upload Android APK Artifact (nhat-niem-vo-cuc-debug.apk)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nhat-niem-vo-cuc-android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
