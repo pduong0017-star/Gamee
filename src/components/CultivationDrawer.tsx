@@ -8,8 +8,11 @@ import {
   PILL_RECIPES,
   PillRecipe,
   REALMS,
+  STORY_CHAPTERS,
+  StoryChapter,
   canCraftPill,
   getArtifactUpgradeCost,
+  getChapterProgress,
   getManualUpgradeCost,
 } from '../game/rules';
 import { LiveHudSnapshot } from './CanvasArena';
@@ -32,6 +35,10 @@ interface CultivationDrawerProps {
   };
   spiritualRootLevel: number;
   breakthroughChance: number;
+  currentChapter: StoryChapter;
+  allChaptersDone: boolean;
+  onClaimChapter: () => void;
+  onSummonBoss: () => void;
   manuals: ImmortalManual[];
   artifacts: ImmortalArtifact[];
   quests: CultivationQuest[];
@@ -46,8 +53,8 @@ interface CultivationDrawerProps {
   onApplyGeminiReward: (stones: number, herbs: number, qi: number, breakthroughAdd: number) => void;
 }
 
-const AVATAR_PATH = '/src/assets/images/cultivator_avatar_1794497143525.jpg';
-const CAULDRON_PATH = '/src/assets/images/alchemy_cauldron_1794497144248.jpg';
+const AVATAR_PATH = 'images/cultivator_avatar.jpg';
+const CAULDRON_PATH = 'images/alchemy_cauldron.jpg';
 
 export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
   activeTab,
@@ -57,6 +64,10 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
   computedStats,
   spiritualRootLevel,
   breakthroughChance,
+  currentChapter,
+  allChaptersDone,
+  onClaimChapter,
+  onSummonBoss,
   manuals,
   artifacts,
   quests,
@@ -101,6 +112,14 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
   const pathInfo = CULTIVATION_PATHS[pathId];
   const rootUpgradeCost = Math.round(35 * Math.pow(1.5, spiritualRootLevel - 1));
   const totalArtifactLevels = artifacts.reduce((acc, a) => acc + a.level, 0);
+
+  const storyMetrics = {
+    kills: hud.kills,
+    pillsCrafted: pillsCraftedCount,
+    realmIndex: hud.realmIndex,
+    artifactsUnlocked: totalArtifactLevels,
+  };
+  const chapProg = getChapterProgress(currentChapter, storyMetrics);
 
   const getQuestProgress = (q: CultivationQuest): number => {
     if (q.metric === 'kills') return hud.kills;
@@ -231,18 +250,18 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
   return (
     <aside
       aria-label="Bảng điều khiển Tu Tiên Vô Cực"
-      className="fixed top-2 sm:top-16 right-2 sm:right-4 bottom-2 sm:bottom-20 z-30 w-[94vw] max-w-[460px] jade-surface rounded-2xl p-4 sm:p-5 flex flex-col justify-between overflow-y-auto pointer-events-auto"
+      className="fixed top-2 sm:top-16 right-2 sm:right-4 bottom-2 sm:bottom-20 z-30 w-[94vw] max-w-[470px] jade-plaque rounded-2xl p-4 sm:p-5 flex flex-col justify-between overflow-y-auto pointer-events-auto"
     >
       <div className="space-y-4">
         {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b border-[#d4af6a]/20 pb-2.5">
+        <div className="flex items-center justify-between border-b border-[#d4af6a]/25 pb-2.5">
           <div>
             <h2 className="font-display font-bold text-lg sm:text-xl text-[#f4e4bc]">
-              {activeTab === 'dong_phu' && '01. Động Phủ · Căn Cơ & Nhiệm Vụ'}
-              {activeTab === 'dan_phong' && '02. Đan Phòng · Cửu Long Đan Lô'}
-              {activeTab === 'phap_bao' && '03. Pháp Bảo & Thần Thú Đồng Hành'}
-              {activeTab === 'tang_kinh' && '04. Tàng Kinh Các · Cổ Kinh & AI'}
-              {activeTab === 'thien_co' && '05. Thiên Cơ Các & Build App GitHub'}
+              {activeTab === 'dong_phu' && '洞府 · Động Phủ & Cốt Truyện Tiên Đồ'}
+              {activeTab === 'dan_phong' && '丹房 · Đan Phòng Cửu Long Đan Lô'}
+              {activeTab === 'phap_bao' && '法寶 · Pháp Bảo & Thần Thú Kỳ Lân'}
+              {activeTab === 'tang_kinh' && '藏經 · Tàng Kinh Các & Sáng Tạo Bí Tịch'}
+              {activeTab === 'thien_co' && '天機 · Thiên Cơ Các & Build App GitHub'}
             </h2>
             <p className="text-xs text-[#a39e93]">
               {currentRealm.name} · {currentRealm.stageLabel}
@@ -252,18 +271,90 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Đóng bảng tu luyện"
-            className="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#ece5d5] bg-[#14262e] hover:bg-[#1c3540] border border-[#d4af6a]/30 cursor-pointer"
+            className="cinnabar-seal min-h-[36px] px-3 py-1 rounded-full text-xs font-bold text-[#f4e4bc] cursor-pointer"
           >
             Đóng
           </button>
         </div>
 
-        {/* TAB 1: ĐỘNG PHỦ, CHÂN DUNG TU SĨ & NHIỆM VỤ TIÊN ĐỒ */}
+        {/* TAB 1: ĐỘNG PHỦ, MẠCH TRUYỆN 5 CHƯƠNG & NHIỆM VỤ TIÊN ĐỒ */}
         {activeTab === 'dong_phu' && (
           <div className="space-y-3.5">
+            {/* Active Storyline Chapter Scroll inside Động Phủ */}
+            <div className="p-3 rounded-xl bg-[#09151b] border-2 border-[#d4af6a] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="cinnabar-seal px-2 py-0.5 rounded text-[10px] font-bold text-[#f4e4bc]">
+                    {allChaptersDone ? 'Viên Mãn' : currentChapter.chapterCode}
+                  </span>
+                  <span className="text-xs font-bold text-[#f4e4bc]">
+                    {allChaptersDone ? 'Đã Hoàn Thành 5 Chương Chính Tuyến' : currentChapter.title}
+                  </span>
+                </div>
+                <span className="font-mono-num text-[11px] text-[#2ec4b6]">
+                  {Math.min(chapProg.current, chapProg.target)}/{chapProg.target}
+                </span>
+              </div>
+
+              <p className="text-xs text-[#ece5d5] italic leading-relaxed bg-[#0f2129] p-2.5 rounded-lg border border-[#d4af6a]/20">
+                <strong className="text-[#e9c46a] not-italic">{currentChapter.npcName}: </strong>
+                “{currentChapter.dialogue}”
+              </p>
+
+              {/* 5-Chapter Milestone Progress Pills */}
+              <div className="grid grid-cols-5 gap-1 pt-0.5">
+                {STORY_CHAPTERS.map((ch) => {
+                  const done = allChaptersDone || ch.index < currentChapter.index;
+                  const current = !allChaptersDone && ch.index === currentChapter.index;
+                  return (
+                    <div
+                      key={ch.id}
+                      className={`text-center py-1 rounded text-[10px] font-semibold border ${
+                        done
+                          ? 'bg-[#17363a] border-[#2ec4b6] text-[#2ec4b6]'
+                          : current
+                            ? 'bg-[#2a2315] border-[#e9c46a] text-[#f4e4bc]'
+                            : 'bg-[#081014] border-[#d4af6a]/20 text-[#a39e93]'
+                      }`}
+                    >
+                      {ch.chapterCode}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="font-mono-num text-[11px] text-[#e9c46a]">
+                  Thưởng: +{currentChapter.rewardStones} Thạch · +{currentChapter.rewardQi} Tu Vi
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSummonBoss();
+                      onClose();
+                    }}
+                    className="min-h-[34px] px-2.5 py-1 rounded-full bg-[#2b1228] border border-[#f72585] text-[11px] font-bold text-[#f4e4bc] cursor-pointer"
+                  >
+                    Triệu Hồi Yêu Vương
+                  </button>
+                  {!allChaptersDone && (
+                    <button
+                      type="button"
+                      disabled={!chapProg.completed}
+                      onClick={onClaimChapter}
+                      className="cinnabar-seal min-h-[34px] px-3 py-1 rounded-full text-[11px] font-bold text-[#f4e4bc] disabled:opacity-40 cursor-pointer"
+                    >
+                      {chapProg.completed ? 'Qua Chương Mới' : 'Đang Thực Hiện'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Showcase Cultivator Guofeng Portrait & Core Stats */}
             <div className="flex items-center gap-3.5 bg-[#070e12] p-3 rounded-xl border border-[#d4af6a]/25">
-              <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-[#d4af6a] shrink-0 bg-[#102027]">
+              <div className="w-18 h-18 rounded-full overflow-hidden border-2 border-[#d4af6a] shrink-0 bg-[#102027]">
                 {!avatarImgErr && (
                   <img
                     src={AVATAR_PATH}
@@ -274,7 +365,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                   />
                 )}
               </div>
-              <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+              <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                 <div>
                   <span className="text-[#a39e93]">Công Kích: </span>
                   <span className="font-mono-num font-bold text-[#ece5d5]">{computedStats.attack}</span>
@@ -304,7 +395,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
 
             {/* Upgrade Spiritual Root & Breakthrough */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div className="p-3 rounded-xl bg-[#0d1920] border border-[#2ec4b6]/25 space-y-2">
+              <div className="p-3 rounded-xl bg-[#0d1920] border border-[#2ec4b6]/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-[#ece5d5]">Linh Căn Bậc {spiritualRootLevel}</span>
                   <span className="font-mono-num text-[11px] text-[#e9c46a]">{rootUpgradeCost} Thạch</span>
@@ -313,13 +404,13 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                   type="button"
                   disabled={hud.spiritStones < rootUpgradeCost}
                   onClick={onUpgradeRoot}
-                  className="w-full min-h-[40px] py-1.5 px-3 rounded-lg text-xs font-bold bg-[#2ec4b6] text-[#060a0d] disabled:opacity-40 cursor-pointer"
+                  className="w-full min-h-[38px] py-1.5 px-3 rounded-full text-xs font-bold bg-[#2ec4b6] text-[#060a0d] disabled:opacity-40 cursor-pointer"
                 >
                   Tẩy Tủy (+12% Tụ Khí)
                 </button>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#141c24] border border-[#d4af6a]/30 space-y-2">
+              <div className="p-3 rounded-xl bg-[#141c24] border border-[#d4af6a]/35 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-[#f4e4bc] truncate">Lên: {nextRealm.name}</span>
                   <span className="font-mono-num text-[11px] text-[#2ec4b6]">{Math.floor((hud.qi / currentRealm.maxQi) * 100)}%</span>
@@ -331,7 +422,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                     onStartTribulation();
                     onClose();
                   }}
-                  className="w-full min-h-[40px] py-1.5 px-3 rounded-lg text-xs font-bold bg-[#d4af6a] text-[#090d11] disabled:opacity-40 cursor-pointer"
+                  className="cinnabar-seal w-full min-h-[38px] py-1.5 px-3 rounded-full text-xs font-bold text-[#f4e4bc] disabled:opacity-40 cursor-pointer"
                 >
                   {hud.qi >= currentRealm.maxQi ? 'Khởi Động Độ Kiếp' : `Cần ${currentRealm.maxQi} Tu Vi`}
                 </button>
@@ -341,7 +432,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
             {/* Nhiệm Vụ Tiên Đồ (Sect Quests) */}
             <div className="space-y-2">
               <div className="text-xs font-semibold text-[#d4af6a]">
-                NHIỆM VỤ TIÊN ĐỒ · THƯỞNG LINH THẠCH & TU VI
+                NHIỆM VỤ TÔNG MÔN · THƯỞNG LINH THẠCH & TU VI
               </div>
               {quests.map((q) => {
                 const prog = getQuestProgress(q);
@@ -364,11 +455,11 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                       type="button"
                       disabled={!ready}
                       onClick={() => onClaimQuest(q.id)}
-                      className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 cursor-pointer ${
+                      className={`min-h-[36px] px-3 py-1 rounded-full text-xs font-bold shrink-0 cursor-pointer ${
                         q.claimed
                           ? 'bg-[#111e24] text-[#a39e93]'
                           : ready
-                            ? 'bg-[#e9c46a] text-[#090d11]'
+                            ? 'cinnabar-seal text-[#f4e4bc]'
                             : 'bg-[#111e24] text-[#a39e93] opacity-50'
                       }`}
                     >
@@ -380,7 +471,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
             </div>
 
             {/* Fast Gemini 3.1 Flash-Lite Secret Realm Encounter */}
-            <div className="p-3 rounded-xl bg-[#0a1318] border border-[#d4af6a]/20 space-y-2">
+            <div className="p-3 rounded-xl bg-[#0a1318] border border-[#d4af6a]/25 space-y-2">
               <div className="text-xs font-semibold text-[#d4af6a]">
                 DU NGOẠN KỲ NGỘ · GEMINI 3.1 FLASH-LITE
               </div>
@@ -394,7 +485,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                 type="button"
                 disabled={encounterLoading}
                 onClick={handleTriggerEncounter}
-                className="w-full min-h-[40px] py-2 px-4 rounded-lg text-xs font-semibold border border-[#d4af6a]/50 text-[#f4e4bc] hover:bg-[#162730] cursor-pointer"
+                className="jade-plaque w-full min-h-[38px] py-1.5 px-4 rounded-full text-xs font-semibold text-[#f4e4bc] cursor-pointer"
               >
                 {encounterLoading ? 'Đang Cảm Ứng Thiên Địa...' : 'Tìm Kiếm Tiên Duyên (+Linh Thạch & Tu Vi)'}
               </button>
@@ -405,7 +496,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
         {/* TAB 2: ĐAN PHÒNG LUYỆN ĐAN */}
         {activeTab === 'dan_phong' && (
           <div className="space-y-3.5">
-            <div className="relative h-40 rounded-xl overflow-hidden border-2 border-[#d4af6a]/40 bg-[#081014] flex items-center justify-center">
+            <div className="relative h-40 rounded-xl overflow-hidden border-2 border-[#d4af6a]/50 bg-[#081014] flex items-center justify-center">
               {!cauldronImgErr ? (
                 <img
                   src={CAULDRON_PATH}
@@ -435,7 +526,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                 return (
                   <div
                     key={recipe.id}
-                    className="p-3 rounded-xl bg-[#0d181e] border border-[#d4af6a]/20 space-y-2"
+                    className="p-3 rounded-xl bg-[#0d181e] border border-[#d4af6a]/25 space-y-2"
                   >
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-semibold text-[#f4e4bc]">{recipe.name}</div>
@@ -448,7 +539,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                       type="button"
                       disabled={!craftable}
                       onClick={() => onCraftPill(recipe)}
-                      className="w-full min-h-[42px] py-2 px-3 rounded-lg text-xs font-bold bg-[#d4af6a] text-[#090d11] disabled:opacity-40 cursor-pointer"
+                      className="cinnabar-seal w-full min-h-[40px] py-2 px-3 rounded-full text-xs font-bold text-[#f4e4bc] disabled:opacity-40 cursor-pointer"
                     >
                       Khai Lô Luyện Đan
                     </button>
@@ -462,7 +553,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
         {/* TAB 3: PHÁP BẢO & LINH THÚ ĐỒNG HÀNH */}
         {activeTab === 'phap_bao' && (
           <div className="space-y-3">
-            <div className="p-2.5 rounded-xl bg-[#091318] border border-[#d4af6a]/20 flex justify-between text-xs font-mono-num">
+            <div className="p-2.5 rounded-xl bg-[#091318] border border-[#d4af6a]/25 flex justify-between text-xs font-mono-num">
               <span className="text-[#e9c46a]">Linh Thạch: {hud.spiritStones.toFixed(0)}</span>
               <span className="text-[#f72585]">Yêu Đan: {hud.beastCores.toFixed(0)}</span>
             </div>
@@ -493,7 +584,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                       type="button"
                       disabled={!canUp}
                       onClick={() => onUpgradeArtifact(art.id)}
-                      className="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold bg-[#d4af6a] text-[#090d11] disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                      className="cinnabar-seal min-h-[36px] px-3 py-1 rounded-full text-xs font-bold text-[#f4e4bc] disabled:opacity-40 cursor-pointer whitespace-nowrap"
                     >
                       {art.level === 0 ? 'Khai Mở' : 'Tế Luyện'} ({cost.stoneCost} Thạch · {cost.coreCost} Đan)
                     </button>
@@ -514,7 +605,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                 return (
                   <div
                     key={m.id}
-                    className="p-3 rounded-xl bg-[#0d181e] border border-[#d4af6a]/20 space-y-1.5"
+                    className="p-3 rounded-xl bg-[#0d181e] border border-[#d4af6a]/25 space-y-1.5"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-[#f4e4bc]">
@@ -531,7 +622,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                         type="button"
                         disabled={!canUp}
                         onClick={() => onUpgradeManual(m.id)}
-                        className="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold bg-[#2ec4b6] text-[#060a0d] disabled:opacity-40 cursor-pointer"
+                        className="min-h-[36px] px-3 py-1 rounded-full text-xs font-bold bg-[#2ec4b6] text-[#060a0d] disabled:opacity-40 cursor-pointer"
                       >
                         Lĩnh Ngộ ({cost} Thạch)
                       </button>
@@ -543,7 +634,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
 
             <form
               onSubmit={handleForgeManual}
-              className="p-3.5 rounded-xl bg-[#081116] border border-[#2ec4b6]/30 space-y-2.5"
+              className="p-3.5 rounded-xl bg-[#081116] border border-[#2ec4b6]/35 space-y-2.5"
             >
               <div className="text-xs font-semibold text-[#2ec4b6]">
                 SÁNG TẠO CÔNG PHÁP · GEMINI 4 ARGON
@@ -564,7 +655,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
               <button
                 type="submit"
                 disabled={forgingManual}
-                className="w-full min-h-[40px] py-2 px-4 rounded-lg text-xs font-bold bg-[#d4af6a] text-[#090d11] cursor-pointer"
+                className="cinnabar-seal w-full min-h-[38px] py-2 px-4 rounded-full text-xs font-bold text-[#f4e4bc] cursor-pointer"
               >
                 {forgingManual ? 'Đang Diễn Hóa Đạo Văn...' : 'Khai Sáng Bí Tịch Mới'}
               </button>
@@ -572,19 +663,21 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
           </div>
         )}
 
-        {/* TAB 5: THIÊN CƠ CÁC (GEMINI 4 CARBON) & CÀI ĐẶT APP / GITHUB BUILD */}
+        {/* TAB 5: THIÊN CƠ CÁC (GEMINI 4 CARBON) & BUILD APP GITHUB */}
         {activeTab === 'thien_co' && (
           <div className="space-y-4">
-            {/* In-App Mobile PWA Install & GitHub Actions APK Build Section */}
-            <div className="p-3.5 rounded-xl bg-[#0e1d24] border border-[#2ec4b6]/40 space-y-2.5">
+            {/* GitHub Actions APK & Web Build Fix Verification Section */}
+            <div className="p-3.5 rounded-xl bg-[#0e1d24] border border-[#2ec4b6]/45 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold text-[#2ec4b6]">
-                  CÀI ĐẶT APP MOBILE & BUILD APK TRÊN GITHUB
+                  ĐÃ KHẮC PHỤC LỖI BUILD APP TRÊN GITHUB ACTIONS
                 </div>
-                <span className="text-[11px] text-[#e9c46a]">Màn Hình Ngang</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-[#17363a] text-[#2ec4b6] font-semibold">
+                  APK + Web PWA
+                </span>
               </div>
               <p className="text-xs text-[#c5beb0] leading-relaxed">
-                Trò chơi đã tích hợp chuẩn **PWA Fullscreen Landscape** và cấu hình **GitHub Actions CI/CD** (`.github/workflows/build-app.yml` + `capacitor.config.json`) tự động đóng gói **Android APK** và **Web App** khi đẩy lên GitHub.
+                Workflow <code>.github/workflows/build-app.yml</code> đã được sửa lỗi phiên bản npm nội bộ (tự động đồng bộ sang public npm registry), bỏ yêu cầu <code>package-lock.json</code>, khóa xoay ngang <code>sensorLandscape</code> trong AndroidManifest và xuất trực tiếp file <strong>nhat-niem-vo-cuc-android.apk</strong> trong mục <strong>Actions &rarr; Artifacts</strong> trên GitHub.
               </p>
 
               <div className="flex flex-wrap gap-2">
@@ -592,28 +685,28 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                   <button
                     type="button"
                     onClick={install}
-                    className="flex-1 min-h-[40px] px-3 py-2 rounded-lg bg-[#2ec4b6] text-[#060a0d] font-bold text-xs cursor-pointer"
+                    className="flex-1 min-h-[38px] px-3 py-1.5 rounded-full bg-[#2ec4b6] text-[#060a0d] font-bold text-xs cursor-pointer"
                   >
                     Cài Đặt App Ngay (PWA)
                   </button>
                 )}
                 {isIOS && !isInstalled && (
                   <div className="w-full text-[11px] text-[#e9c46a] bg-[#081116] p-2 rounded">
-                    Trên iPhone/iPad: Nhấn nút <strong>Chia sẻ (Share)</strong> trên Safari · chọn <strong>Thêm vào Màn hình chính</strong>.
+                    Trên iPhone/iPad: Nhấn nút <strong>Chia sẻ (Share)</strong> trên Safari &middot; chọn <strong>Thêm vào Màn hình chính</strong>.
                   </div>
                 )}
                 <button
                   type="button"
                   onClick={() => {
                     navigator.clipboard?.writeText(
-                      'git add . && git commit -m "Release Nhat Niem Vo Cuc Mobile App" && git push origin main'
+                      'git add . && git commit -m "Fix GitHub Actions APK build and upgrade Guofeng UI" && git push origin main'
                     );
                     setCopiedCmd(true);
                     setTimeout(() => setCopiedCmd(false), 2500);
                   }}
-                  className="flex-1 min-h-[40px] px-3 py-2 rounded-lg bg-[#162b34] border border-[#d4af6a]/40 text-[#f4e4bc] font-semibold text-xs cursor-pointer"
+                  className="cinnabar-seal flex-1 min-h-[38px] px-3 py-1.5 rounded-full text-[#f4e4bc] font-semibold text-xs cursor-pointer"
                 >
-                  {copiedCmd ? 'Đã Sao Chép Lệnh GitHub!' : 'Sao Chép Lệnh Push GitHub Build APK'}
+                  {copiedCmd ? 'Đã Sao Chép Lệnh Git Push!' : 'Sao Chép Lệnh Push Lên GitHub Build APK'}
                 </button>
               </div>
             </div>
@@ -638,7 +731,7 @@ export const CultivationDrawer: React.FC<CultivationDrawerProps> = ({
                 <button
                   type="submit"
                   disabled={deducing}
-                  className="w-full min-h-[42px] py-2 px-4 rounded-lg text-xs font-bold bg-[#d4af6a] hover:bg-[#e9c46a] text-[#090d11] cursor-pointer"
+                  className="cinnabar-seal w-full min-h-[40px] py-2 px-4 rounded-full text-xs font-bold text-[#f4e4bc] cursor-pointer"
                 >
                   {deducing ? 'Thiên Cơ Lão Nhân Đang Suy Luận Sâu...' : 'Khởi Động Thiên Cơ Thôi Diễn'}
                 </button>

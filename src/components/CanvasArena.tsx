@@ -58,6 +58,7 @@ export interface ArenaCommandRef {
   triggerMeditationBurst: () => void;
   setTouchMoveVector: (nx: number, ny: number) => void;
   startTribulation: () => void;
+  summonBoss: () => void;
   consumeHealPill: (healRatio: number, qiAdd: number) => void;
   quickHealHerb: () => void;
   addResources: (stones: number, herbs: number, cores: number, qi: number) => void;
@@ -133,6 +134,8 @@ interface Projectile {
   fromPlayer: boolean;
   x: number;
   y: number;
+  prevX: number;
+  prevY: number;
   vx: number;
   vy: number;
   radius: number;
@@ -314,6 +317,8 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
       fromPlayer: true,
       x: 0,
       y: 0,
+      prevX: 0,
+      prevY: 0,
       vx: 0,
       vy: 0,
       radius: 6,
@@ -340,6 +345,8 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
       pr.fromPlayer = fromPlayer;
       pr.x = x;
       pr.y = y;
+      pr.prevX = x - vx * 0.045;
+      pr.prevY = y - vy * 0.045;
       pr.vx = vx;
       pr.vy = vy;
       pr.damage = damage;
@@ -847,6 +854,16 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
       startTribulation: () => {
         triggerTribulation();
       },
+      summonBoss: () => {
+        if (!enemies.some((e) => e.archetype === 'yeu_vuong' && e.state !== 'ko')) {
+          spawnEnemyWaveActor(true);
+          audio.playHeavyBell();
+          runState.cameraTrauma = Math.min(1, runState.cameraTrauma + 0.45);
+          spawnFloatingText(player.x, player.y - 34, 'CỬU U YÊU VƯƠNG GIÁNG THẾ!', '#f72585', 1.3);
+        } else {
+          spawnFloatingText(player.x, player.y - 24, 'YÊU VƯƠNG ĐÃ HIỆN THÂN!', '#e9c46a', 1.1);
+        }
+      },
       consumeHealPill: (healRatio, qiAdd) => {
         const stats = propsRef.current.computedStats;
         const realm = REALMS[propsRef.current.realmIndex];
@@ -1172,6 +1189,8 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
           pr.active = false;
           continue;
         }
+        pr.prevX = pr.x - pr.vx * 0.055;
+        pr.prevY = pr.y - pr.vy * 0.055;
         pr.x += pr.vx * simDt;
         pr.y += pr.vy * simDt;
 
@@ -1455,18 +1474,18 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      // Deep Ink-Wash Xuanhuan Background
+      // Deep Ink-Wash Guofeng Secret Realm Ground
       const bgGrad = ctx.createRadialGradient(
         width * 0.5,
         height * 0.5,
         40,
         width * 0.5,
         height * 0.5,
-        Math.max(width, height) * 0.78
+        Math.max(width, height) * 0.82
       );
-      bgGrad.addColorStop(0, '#162932');
-      bgGrad.addColorStop(0.55, '#0b151b');
-      bgGrad.addColorStop(1, '#060a0d');
+      bgGrad.addColorStop(0, '#173038');
+      bgGrad.addColorStop(0.52, '#0d1d24');
+      bgGrad.addColorStop(1, '#060c10');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, width, height);
 
@@ -1477,110 +1496,214 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
       ctx.save();
       ctx.translate(width * 0.5 - runState.cameraX + shakeX, height * 0.5 - runState.cameraY + shakeY);
 
-      // Sacred Geometric Grid
-      ctx.strokeStyle = 'rgba(212, 175, 106, 0.055)';
-      ctx.lineWidth = 1;
-      const step = 120;
-      for (let gx = -ARENA_RADIUS; gx <= ARENA_RADIUS; gx += step) {
-        ctx.beginPath();
-        ctx.moveTo(gx, -ARENA_RADIUS);
-        ctx.lineTo(gx, ARENA_RADIUS);
-        ctx.stroke();
-      }
-      for (let gy = -ARENA_RADIUS; gy <= ARENA_RADIUS; gy += step) {
-        ctx.beginPath();
-        ctx.moveTo(-ARENA_RADIUS, gy);
-        ctx.lineTo(ARENA_RADIUS, gy);
-        ctx.stroke();
-      }
-
-      // Outer Bí Cảnh Barrier
-      ctx.strokeStyle = 'rgba(46, 196, 182, 0.28)';
+      // Ancient Flagstone Stepping Stones & Glowing Spirit Veins (Linh Mạch Địa Tuyền)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(46, 196, 182, 0.16)';
+      ctx.fillStyle = 'rgba(18, 36, 44, 0.72)';
       ctx.lineWidth = 3;
+      for (let v = 0; v < 8; v++) {
+        const vAng = (v / 8) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(vAng) * 155, Math.sin(vAng) * 155);
+        ctx.lineTo(Math.cos(vAng) * (ARENA_RADIUS - 30), Math.sin(vAng) * (ARENA_RADIUS - 30));
+        ctx.stroke();
+
+        for (let stepIdx = 1; stepIdx <= 4; stepIdx++) {
+          const sr = 210 + stepIdx * 145;
+          const sx = Math.cos(vAng) * sr;
+          const sy = Math.sin(vAng) * sr;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 18, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+
+      // Outer Bí Cảnh Runic Barrier
+      ctx.strokeStyle = 'rgba(46, 196, 182, 0.35)';
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
       ctx.arc(0, 0, ARENA_RADIUS, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Ornate Central Tụ Linh Bát Quái Trận (Bagua Spirit Array at 0,0)
+      // Ornate Central Thái Cực Bát Quái Linh Đàn (Yin-Yang Taiji & Bagua Spirit Altar at 0,0)
       const inArray = Math.hypot(player.x, player.y) <= 155;
       ctx.save();
-      ctx.strokeStyle = inArray ? 'rgba(233, 196, 106, 0.65)' : 'rgba(46, 196, 182, 0.28)';
-      ctx.fillStyle = inArray ? 'rgba(233, 196, 106, 0.08)' : 'rgba(46, 196, 182, 0.045)';
-      ctx.lineWidth = 2.2;
+      // Outer Lotus Petal Rim
+      for (let p = 0; p < 16; p++) {
+        const pAng = (p / 16) * Math.PI * 2 - runState.elapsedTime * 0.08;
+        ctx.save();
+        ctx.rotate(pAng);
+        ctx.fillStyle = inArray ? 'rgba(233, 196, 106, 0.16)' : 'rgba(46, 196, 182, 0.09)';
+        ctx.strokeStyle = inArray ? 'rgba(233, 196, 106, 0.5)' : 'rgba(46, 196, 182, 0.25)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(142, -14);
+        ctx.quadraticCurveTo(174, 0, 142, 14);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = inArray ? 'rgba(233, 196, 106, 0.78)' : 'rgba(46, 196, 182, 0.38)';
+      ctx.fillStyle = inArray ? 'rgba(233, 196, 106, 0.09)' : 'rgba(13, 30, 38, 0.65)';
+      ctx.lineWidth = 2.4;
       ctx.beginPath();
-      ctx.arc(0, 0, 155, 0, Math.PI * 2);
+      ctx.arc(0, 0, 152, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(0, 0, 118, 0, Math.PI * 2);
+      ctx.arc(0, 0, 114, 0, Math.PI * 2);
       ctx.stroke();
+
+      // True Rotating Yin-Yang Dual Fish (Thái Cực Âm Dương Ngư) in Center
+      ctx.save();
+      ctx.rotate(runState.elapsedTime * 0.35);
+      const taijiR = 54;
+      // Yang half
+      ctx.fillStyle = inArray ? 'rgba(244, 228, 188, 0.22)' : 'rgba(46, 196, 182, 0.16)';
+      ctx.beginPath();
+      ctx.arc(0, 0, taijiR, -Math.PI * 0.5, Math.PI * 0.5, false);
+      ctx.arc(0, taijiR * 0.5, taijiR * 0.5, Math.PI * 0.5, -Math.PI * 0.5, true);
+      ctx.arc(0, -taijiR * 0.5, taijiR * 0.5, Math.PI * 0.5, -Math.PI * 0.5, false);
+      ctx.closePath();
+      ctx.fill();
+
+      // Yin half
+      ctx.fillStyle = 'rgba(6, 12, 16, 0.68)';
+      ctx.beginPath();
+      ctx.arc(0, 0, taijiR, Math.PI * 0.5, -Math.PI * 0.5, false);
+      ctx.arc(0, -taijiR * 0.5, taijiR * 0.5, -Math.PI * 0.5, Math.PI * 0.5, false);
+      ctx.arc(0, taijiR * 0.5, taijiR * 0.5, -Math.PI * 0.5, Math.PI * 0.5, true);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = inArray ? '#e9c46a' : 'rgba(46, 196, 182, 0.5)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(0, 0, taijiR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Yin-Yang Fish Eyes
+      ctx.fillStyle = '#060c10';
+      ctx.beginPath();
+      ctx.arc(0, -taijiR * 0.5, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = inArray ? '#e9c46a' : '#2ec4b6';
+      ctx.beginPath();
+      ctx.arc(0, taijiR * 0.5, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
 
       // Rotating Bagua Trigram Symbols
       const trigrams = ['☰', '☱', '☲', '☳', '☴', '☵', '☶', '☷'];
       ctx.font = '16px serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = inArray ? '#e9c46a' : 'rgba(46, 196, 182, 0.55)';
+      ctx.fillStyle = inArray ? '#e9c46a' : 'rgba(46, 196, 182, 0.65)';
       for (let i = 0; i < 8; i++) {
         const ang = (i / 8) * Math.PI * 2 + runState.elapsedTime * 0.16;
         ctx.beginPath();
-        ctx.moveTo(Math.cos(ang) * 65, Math.sin(ang) * 65);
-        ctx.lineTo(Math.cos(ang) * 150, Math.sin(ang) * 150);
+        ctx.moveTo(Math.cos(ang) * 62, Math.sin(ang) * 62);
+        ctx.lineTo(Math.cos(ang) * 148, Math.sin(ang) * 148);
         ctx.stroke();
-        ctx.fillText(trigrams[i], Math.cos(ang + 0.39) * 136, Math.sin(ang + 0.39) * 136);
+        ctx.fillText(trigrams[i], Math.cos(ang + 0.39) * 133, Math.sin(ang + 0.39) * 133);
       }
 
       // Label at bottom of Bagua Array
       ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = inArray ? '#f4e4bc' : 'rgba(168, 218, 220, 0.65)';
-      ctx.fillText('TỤ LINH BÁT QUÁI TRẬN · +50% TU VI/S', 0, 174);
+      ctx.fillStyle = inArray ? '#f4e4bc' : 'rgba(168, 218, 220, 0.72)';
+      ctx.fillText('TỤ LINH BÁT QUÁI TRẬN · +50% TU VI/S', 0, 178);
       ctx.restore();
 
-      // Render Landmarks
+      // Render Guofeng Landmarks (Carved Dragon Pillars, Spirit Jade Crystals, & Swaying Bamboo Groves)
       for (const lm of landmarks) {
         ctx.save();
         ctx.translate(lm.x, lm.y);
-        ctx.fillStyle = 'rgba(6, 10, 13, 0.58)';
+        ctx.fillStyle = 'rgba(4, 8, 11, 0.62)';
         ctx.beginPath();
-        ctx.ellipse(0, lm.size * 0.5, lm.size * 0.9, lm.size * 0.45, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, lm.size * 0.52, lm.size * 0.95, lm.size * 0.45, 0, 0, Math.PI * 2);
         ctx.fill();
 
         if (lm.kind === 'stone_pillar') {
-          ctx.fillStyle = '#1b2c35';
+          // Carved Immortal Dragon Pillar + Floating Lotus Lantern
+          ctx.fillStyle = '#182a33';
           ctx.strokeStyle = '#d4af6a';
-          ctx.lineWidth = 1.6;
+          ctx.lineWidth = 1.8;
           ctx.beginPath();
-          ctx.roundRect(-13, -lm.size, 26, lm.size * 1.45, 4);
+          ctx.roundRect(-14, -lm.size * 1.15, 28, lm.size * 1.6, 4);
           ctx.fill();
           ctx.stroke();
-          // Glowing rune line on pillar
-          ctx.strokeStyle = '#2ec4b6';
+          // Pillar Cap
+          ctx.fillStyle = '#243c47';
           ctx.beginPath();
-          ctx.moveTo(0, -lm.size + 8);
-          ctx.lineTo(0, lm.size * 0.3);
+          ctx.roundRect(-18, -lm.size * 1.25, 36, 9, 3);
+          ctx.fill();
           ctx.stroke();
-        } else if (lm.kind === 'jade_rock') {
-          ctx.fillStyle = '#183a37';
+          // Glowing Golden Seal Inscription
           ctx.strokeStyle = '#2ec4b6';
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.6;
           ctx.beginPath();
-          ctx.moveTo(0, -lm.size * 0.75);
-          ctx.lineTo(lm.size * 0.65, 0);
+          ctx.moveTo(0, -lm.size * 0.95);
+          ctx.lineTo(0, lm.size * 0.25);
+          ctx.moveTo(-6, -lm.size * 0.45);
+          ctx.lineTo(6, -lm.size * 0.45);
+          ctx.stroke();
+          // Floating Lotus Lantern above pillar
+          const lanternY = -lm.size * 1.48 + Math.sin(runState.elapsedTime * 2.4 + lm.x) * 4;
+          ctx.fillStyle = '#e9c46a';
+          ctx.beginPath();
+          ctx.arc(0, lanternY, 5.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (lm.kind === 'jade_rock') {
+          // Multi-Crystal Immortal Jade Cluster
+          ctx.fillStyle = '#143835';
+          ctx.strokeStyle = '#2ec4b6';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(0, -lm.size * 0.95);
+          ctx.lineTo(lm.size * 0.55, -lm.size * 0.15);
           ctx.lineTo(lm.size * 0.35, lm.size * 0.55);
-          ctx.lineTo(-lm.size * 0.45, lm.size * 0.55);
-          ctx.lineTo(-lm.size * 0.65, -lm.size * 0.1);
+          ctx.lineTo(-lm.size * 0.4, lm.size * 0.55);
+          ctx.lineTo(-lm.size * 0.6, -lm.size * 0.2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Secondary side crystal shard
+          ctx.fillStyle = '#1f524d';
+          ctx.beginPath();
+          ctx.moveTo(lm.size * 0.3, -lm.size * 0.55);
+          ctx.lineTo(lm.size * 0.85, -lm.size * 0.05);
+          ctx.lineTo(lm.size * 0.45, lm.size * 0.48);
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
         } else {
-          ctx.fillStyle = '#1b3b32';
+          // Swaying Emerald Spirit Bamboo Grove (Trúc Lâm Thủy Mặc)
+          const sway = Math.sin(runState.elapsedTime * 1.8 + lm.y * 0.02) * 4;
           ctx.strokeStyle = '#52b788';
-          ctx.lineWidth = 1.4;
-          ctx.beginPath();
-          ctx.arc(0, -8, lm.size * 0.75, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
+          ctx.lineWidth = 3.2;
+          for (const bx of [-9, 0, 10]) {
+            ctx.beginPath();
+            ctx.moveTo(bx, lm.size * 0.45);
+            ctx.quadraticCurveTo(bx + sway * 0.5, -lm.size * 0.3, bx + sway, -lm.size * 1.15);
+            ctx.stroke();
+          }
+          // Bamboo Leaf Clusters
+          ctx.fillStyle = '#2a6f57';
+          ctx.strokeStyle = '#74c69d';
+          ctx.lineWidth = 1.2;
+          for (let c = 0; c < 3; c++) {
+            const cx = (c - 1) * 11 + sway;
+            const cy = -lm.size * (0.65 + (c % 2) * 0.35);
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 13, 6, (c - 1) * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          }
         }
         ctx.restore();
       }
@@ -1608,14 +1731,14 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
         ctx.restore();
       }
 
-      // Render Pickup Orbs
+      // Render Pickup Orbs (Faceted Spirit Gems, Herbs, & Golden Beast Cores)
       for (let i = 0; i < MAX_ORBS; i++) {
         const o = orbs[i];
         if (!o.active) continue;
         const bobY = Math.sin(o.bobPhase) * 4;
         ctx.save();
         ctx.translate(o.x, o.y + bobY);
-        ctx.fillStyle =
+        const orbColor =
           o.kind === 'qi'
             ? '#2ec4b6'
             : o.kind === 'stone'
@@ -1623,16 +1746,29 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
               : o.kind === 'herb'
                 ? '#52b788'
                 : '#f72585';
-        ctx.beginPath();
-        ctx.arc(0, 0, o.kind === 'core' ? 8.5 : 6.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
+        ctx.fillStyle = orbColor;
+        ctx.strokeStyle = '#f4e4bc';
+        ctx.lineWidth = 1.4;
+        if (o.kind === 'stone') {
+          // Diamond Spirit Stone
+          ctx.beginPath();
+          ctx.moveTo(0, -8);
+          ctx.lineTo(7, 0);
+          ctx.lineTo(0, 8);
+          ctx.lineTo(-7, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, o.kind === 'core' ? 9 : 6.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
         ctx.restore();
       }
 
-      // Render Detailed Enemy Actors & Windup Telegraphs
+      // Render Multi-Part Articulated Yêu Thú & Boss Sprites
       for (const en of enemies) {
         const cfg = ENEMY_ARCHETYPES[en.archetype];
         ctx.save();
@@ -1646,7 +1782,7 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
         if (en.state === 'windup') {
           const pct = 1 - Math.max(0, en.stateTimer / cfg.windupDuration);
           ctx.save();
-          ctx.strokeStyle = 'rgba(230, 57, 70, 0.88)';
+          ctx.strokeStyle = 'rgba(230, 57, 70, 0.9)';
           ctx.fillStyle = 'rgba(230, 57, 70, 0.18)';
           ctx.lineWidth = 2;
           if (cfg.policy === 'charger' || cfg.policy === 'kiter') {
@@ -1656,85 +1792,241 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
             ctx.stroke();
           }
           ctx.beginPath();
-          ctx.arc(0, 0, cfg.radius + 8 + pct * 10, 0, Math.PI * 2);
+          ctx.arc(0, 0, cfg.radius + 9 + pct * 10, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
           ctx.restore();
         }
 
-        // Boss Demonic Hexagram Ring
-        if (en.archetype === 'yeu_vuong') {
+        // Ground Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+        ctx.beginPath();
+        ctx.ellipse(0, cfg.radius * 0.82, cfg.radius * 0.95, cfg.radius * 0.44, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const isFlashing = en.hitFlashTimer > 0;
+        const bodyFill = isFlashing ? '#ffffff' : cfg.color;
+        const faceDir = player.x >= en.x ? 1 : -1;
+
+        if (en.archetype === 'huyet_lang') {
+          // HUYẾT LANG YÊU: Fierce Crimson Demon Wolf with Fangs, Ears, Tail & Claw Arcs
           ctx.save();
-          ctx.rotate(runState.elapsedTime * 0.9);
-          ctx.strokeStyle = 'rgba(247, 37, 133, 0.65)';
+          ctx.scale(faceDir, 1);
+          // Bushy Tail
+          ctx.fillStyle = isFlashing ? '#ffffff' : '#780000';
+          ctx.strokeStyle = '#070b0e';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(0, 0, cfg.radius + 14, 0, Math.PI * 2);
+          ctx.moveTo(-10, 4);
+          ctx.quadraticCurveTo(-26, -6 + Math.sin(runState.elapsedTime * 8 + en.id) * 5, -22, 11);
+          ctx.closePath();
+          ctx.fill();
           ctx.stroke();
+
+          // Wolf Torso & Swept Ears
+          ctx.fillStyle = bodyFill;
+          ctx.beginPath();
+          ctx.moveTo(18, 2); // Snout tip
+          ctx.lineTo(8, -11);
+          ctx.lineTo(4, -22); // Front ear
+          ctx.lineTo(-2, -13);
+          ctx.lineTo(-8, -21); // Back ear
+          ctx.lineTo(-14, -6);
+          ctx.lineTo(-16, 10);
+          ctx.lineTo(6, 13);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // White Fangs & Glowing Eye
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(14, 3);
+          ctx.lineTo(12, 8);
+          ctx.lineTo(9, 3);
+          ctx.fill();
+
+          ctx.fillStyle = '#ffccd5';
+          ctx.beginPath();
+          ctx.arc(6, -4, 3, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
-        }
-
-        // Ground Shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
-        ctx.beginPath();
-        ctx.ellipse(0, cfg.radius * 0.78, cfg.radius * 0.9, cfg.radius * 0.42, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Detailed Beast Silhouette
-        ctx.fillStyle = en.hitFlashTimer > 0 ? '#ffffff' : cfg.color;
-        ctx.strokeStyle = '#070b0e';
-        ctx.lineWidth = 2.4;
-        ctx.beginPath();
-        if (en.archetype === 'huyet_lang') {
-          // Wolf silhouette with pointed ears
-          ctx.moveTo(0, -cfg.radius * 1.15);
-          ctx.lineTo(cfg.radius * 0.55, -cfg.radius * 1.35);
-          ctx.lineTo(cfg.radius * 1.05, 0);
-          ctx.lineTo(0, cfg.radius * 1.05);
-          ctx.lineTo(-cfg.radius * 1.05, 0);
-          ctx.lineTo(-cfg.radius * 0.55, -cfg.radius * 1.35);
-          ctx.closePath();
-        } else if (en.archetype === 'hac_hung') {
-          for (let s = 0; s < 6; s++) {
-            const a = (s / 6) * Math.PI * 2;
-            const px = Math.cos(a) * cfg.radius;
-            const py = Math.sin(a) * cfg.radius;
-            if (s === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
+        } else if (en.archetype === 'huyen_xa') {
+          // HUYỀN MINH ĐỘC XÀ: Multi-Segment Sinusoidal Serpent + Flared Cobra Hood & Forked Tongue
+          const wavePhase = runState.elapsedTime * 7 + en.id;
+          for (let seg = 4; seg >= 1; seg--) {
+            const sx = -faceDir * seg * 6.5;
+            const sy = Math.sin(wavePhase - seg * 0.9) * 5.5 + seg * 1.8;
+            ctx.fillStyle = isFlashing ? '#ffffff' : seg % 2 === 0 ? '#1f7a70' : '#2a9d8f';
+            ctx.strokeStyle = '#060c10';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.arc(sx, sy, Math.max(4.5, 11 - seg * 1.4), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
           }
-          ctx.closePath();
-        } else {
-          ctx.arc(0, 0, cfg.radius, 0, Math.PI * 2);
-        }
-        ctx.fill();
-        ctx.stroke();
 
-        // Glowing Eyes & Core Detail
-        ctx.fillStyle = cfg.accentColor;
-        ctx.beginPath();
-        ctx.arc(-cfg.radius * 0.28, -4, 3.2, 0, Math.PI * 2);
-        ctx.arc(cfg.radius * 0.28, -4, 3.2, 0, Math.PI * 2);
-        ctx.fill();
+          // Flared Cobra Hood & Head
+          ctx.fillStyle = bodyFill;
+          ctx.strokeStyle = '#060c10';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.ellipse(0, -3, 14, 11, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Forked Crimson Tongue
+          ctx.strokeStyle = '#f72585';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.moveTo(faceDir * 12, 0);
+          ctx.lineTo(faceDir * 20, -3);
+          ctx.moveTo(faceDir * 15, -1);
+          ctx.lineTo(faceDir * 20, 3);
+          ctx.stroke();
+
+          // Serpent Slit Eyes
+          ctx.fillStyle = '#e9c46a';
+          ctx.beginPath();
+          ctx.arc(-4, -5, 2.8, 0, Math.PI * 2);
+          ctx.arc(4, -5, 2.8, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (en.archetype === 'hac_hung') {
+          // THIẾT GIÁP HẮC HÙNG: Armored War-Bear with Spiked Pauldrons, Horned Helm & Glowing Core
+          ctx.fillStyle = bodyFill;
+          ctx.strokeStyle = '#070b0e';
+          ctx.lineWidth = 2.5;
+          // Hulking Torso
+          ctx.beginPath();
+          ctx.roundRect(-21, -16, 42, 34, 10);
+          ctx.fill();
+          ctx.stroke();
+
+          // Spiked Bronze Shoulder Pauldrons
+          ctx.fillStyle = isFlashing ? '#ffffff' : '#dda15e';
+          ctx.beginPath();
+          ctx.arc(-20, -6, 9, 0, Math.PI * 2);
+          ctx.arc(20, -6, 9, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Iron Horns
+          ctx.fillStyle = '#e9c46a';
+          ctx.beginPath();
+          ctx.moveTo(-12, -15);
+          ctx.lineTo(-18, -27);
+          ctx.lineTo(-5, -16);
+          ctx.moveTo(12, -15);
+          ctx.lineTo(18, -27);
+          ctx.lineTo(5, -16);
+          ctx.fill();
+          ctx.stroke();
+
+          // Glowing Chest Rune & Eyes
+          ctx.fillStyle = '#ffb703';
+          ctx.beginPath();
+          ctx.arc(0, 4, 5.5, 0, Math.PI * 2);
+          ctx.arc(-6, -6, 3.2, 0, Math.PI * 2);
+          ctx.arc(6, -6, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // CỬU U YÊU VƯƠNG (BOSS): Rotating Demonic Array, Flapping Dragon Wings, Obsidian Horns & Sovereign Crown
+          ctx.save();
+          ctx.rotate(runState.elapsedTime * 0.9);
+          ctx.strokeStyle = 'rgba(247, 37, 133, 0.72)';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.arc(0, 0, cfg.radius + 15, 0, Math.PI * 2);
+          ctx.stroke();
+          for (let r = 0; r < 6; r++) {
+            const ra = (r / 6) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(ra) * (cfg.radius + 4), Math.sin(ra) * (cfg.radius + 4));
+            ctx.lineTo(Math.cos(ra + 2.09) * (cfg.radius + 15), Math.sin(ra + 2.09) * (cfg.radius + 15));
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // Spread Demonic Dragon Wings
+          const wingFlap = Math.sin(runState.elapsedTime * 4.5) * 6;
+          ctx.fillStyle = isFlashing ? '#ffffff' : '#3c096c';
+          ctx.strokeStyle = '#f72585';
+          ctx.lineWidth = 2;
+          // Left Wing
+          ctx.beginPath();
+          ctx.moveTo(-14, -4);
+          ctx.lineTo(-48, -24 + wingFlap);
+          ctx.lineTo(-42, 6 + wingFlap);
+          ctx.lineTo(-26, 14);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          // Right Wing
+          ctx.beginPath();
+          ctx.moveTo(14, -4);
+          ctx.lineTo(48, -24 + wingFlap);
+          ctx.lineTo(42, 6 + wingFlap);
+          ctx.lineTo(26, 14);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Sovereign Armored Body
+          ctx.fillStyle = bodyFill;
+          ctx.strokeStyle = '#e9c46a';
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(0, -28);
+          ctx.lineTo(24, -6);
+          ctx.lineTo(18, 26);
+          ctx.lineTo(-18, 26);
+          ctx.lineTo(-24, -6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Curved Demon Sovereign Horns & Floating Crown
+          ctx.fillStyle = '#e9c46a';
+          ctx.beginPath();
+          ctx.moveTo(-10, -22);
+          ctx.quadraticCurveTo(-24, -38, -16, -42);
+          ctx.lineTo(-6, -24);
+          ctx.moveTo(10, -22);
+          ctx.quadraticCurveTo(24, -38, 16, -42);
+          ctx.lineTo(6, -24);
+          ctx.fill();
+
+          // Glowing Crimson Eyes & Third Eye Seal
+          ctx.fillStyle = '#f72585';
+          ctx.beginPath();
+          ctx.arc(-7, -8, 3.8, 0, Math.PI * 2);
+          ctx.arc(7, -8, 3.8, 0, Math.PI * 2);
+          ctx.arc(0, -16, 4.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
         // Enemy HP Bar & Boss Nameplate
         if (en.state !== 'ko') {
-          const bw = Math.max(36, cfg.radius * 2.1);
-          ctx.fillStyle = 'rgba(6, 10, 13, 0.88)';
-          ctx.fillRect(-bw * 0.5, -cfg.radius - 14, bw, 5.5);
+          const bw = Math.max(40, cfg.radius * 2.2);
+          ctx.fillStyle = 'rgba(6, 10, 13, 0.9)';
+          ctx.fillRect(-bw * 0.5, -cfg.radius - 16, bw, 6);
           ctx.fillStyle = en.archetype === 'yeu_vuong' ? '#f72585' : '#e63946';
-          ctx.fillRect(-bw * 0.5, -cfg.radius - 14, bw * Math.max(0, en.hp / en.maxHp), 5.5);
+          ctx.fillRect(-bw * 0.5, -cfg.radius - 16, bw * Math.max(0, en.hp / en.maxHp), 6);
+          ctx.strokeStyle = 'rgba(212, 175, 106, 0.45)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(-bw * 0.5, -cfg.radius - 16, bw, 6);
 
           if (en.archetype === 'yeu_vuong') {
             ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
             ctx.textAlign = 'center';
             ctx.fillStyle = '#f4e4bc';
-            ctx.fillText(cfg.name, 0, -cfg.radius - 21);
+            ctx.fillText(`★ ${cfg.name} ★`, 0, -cfg.radius - 24);
           }
         }
         ctx.restore();
       }
 
-      // Render Detailed Cultivator (Player)
+      // Render Articulated Cultivator (Player) with Flowing Guofeng Silk Ribbons & Orbiting Swords
       ctx.save();
       const bobOffset = Math.sin(player.gaitDist) * 3;
       ctx.translate(player.x, player.y + bobOffset);
@@ -1743,101 +2035,171 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
       if (player.shieldTimer > 0) {
         ctx.save();
         ctx.strokeStyle = '#e9c46a';
-        ctx.fillStyle = 'rgba(233, 196, 106, 0.18)';
-        ctx.lineWidth = 2.5;
+        ctx.fillStyle = 'rgba(233, 196, 106, 0.2)';
+        ctx.lineWidth = 2.6;
         ctx.beginPath();
-        ctx.arc(0, 0, 36, 0, Math.PI * 2);
+        ctx.arc(0, 0, 38, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
       }
 
-      // Orbiting Flying Swords (Phi Kiếm Hộ Thể)
+      // Flowing Immortal Silk Ribbon (Hỗn Thiên Lăng / Tiên Đai Phiêu Dật)
+      ctx.save();
+      const ribbonWave = Math.sin(runState.elapsedTime * 5.2) * 7;
+      ctx.strokeStyle = '#2ec4b6';
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.moveTo(-12, -4);
+      ctx.quadraticCurveTo(-26, -16 + ribbonWave, -34, -4 - ribbonWave);
+      ctx.moveTo(12, -4);
+      ctx.quadraticCurveTo(26, -16 - ribbonWave, 34, -4 + ribbonWave);
+      ctx.stroke();
+      ctx.restore();
+
+      // Orbiting Flying Swords (Phi Kiếm Hộ Thể) with Sword-Qi Trails
       for (let s = 0; s < 3; s++) {
-        const swordAng = runState.elapsedTime * 3.3 + (s * Math.PI * 2) / 3;
-        const sx = Math.cos(swordAng) * 34;
-        const sy = Math.sin(swordAng) * 34;
+        const swordAng = runState.elapsedTime * 3.4 + (s * Math.PI * 2) / 3;
+        const sx = Math.cos(swordAng) * 36;
+        const sy = Math.sin(swordAng) * 36;
+
+        // Luminous Sword-Qi Arc Trail behind each orbiting sword
+        ctx.strokeStyle = 'rgba(46, 196, 182, 0.42)';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 36, swordAng - 0.65, swordAng);
+        ctx.stroke();
+
         ctx.save();
         ctx.translate(sx, sy);
         ctx.rotate(swordAng + Math.PI * 0.5);
         ctx.fillStyle = '#2ec4b6';
         ctx.strokeStyle = '#f4e4bc';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.3;
         ctx.beginPath();
-        ctx.moveTo(0, -12);
-        ctx.lineTo(4, 6);
-        ctx.lineTo(0, 10);
-        ctx.lineTo(-4, 6);
+        ctx.moveTo(0, -14);
+        ctx.lineTo(4.2, 5);
+        ctx.lineTo(0, 11);
+        ctx.lineTo(-4.2, 5);
         ctx.closePath();
         ctx.fill();
+        ctx.stroke();
+        // Golden Hilt Guard
+        ctx.strokeStyle = '#e9c46a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-6, 4);
+        ctx.lineTo(6, 4);
         ctx.stroke();
         ctx.restore();
       }
 
-      // Spirit Beast Companion (Huyền Hỏa Kỳ Lân)
+      // Spirit Beast Companion (Huyền Hỏa Kỳ Lân) with Antlers & Flame Tail
       if (propsRef.current.hasSpiritBeast) {
         const beastAng = runState.elapsedTime * 2.1;
-        const bx = Math.cos(beastAng) * 48;
-        const by = Math.sin(beastAng) * 48;
+        const bx = Math.cos(beastAng) * 50;
+        const by = Math.sin(beastAng) * 50;
         ctx.save();
         ctx.translate(bx, by);
+        // Flame Aura Tail
+        ctx.fillStyle = 'rgba(247, 37, 133, 0.45)';
+        ctx.beginPath();
+        ctx.arc(-Math.cos(beastAng) * 7, -Math.sin(beastAng) * 7, 11, 0, Math.PI * 2);
+        ctx.fill();
+        // Qilin Body
         ctx.fillStyle = '#f72585';
         ctx.strokeStyle = '#e9c46a';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Golden Qilin Antlers
+        ctx.strokeStyle = '#f4e4bc';
         ctx.lineWidth = 1.6;
         ctx.beginPath();
-        ctx.arc(0, 0, 8.5, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(-4, -7);
+        ctx.lineTo(-8, -14);
+        ctx.moveTo(4, -7);
+        ctx.lineTo(8, -14);
         ctx.stroke();
         ctx.restore();
       }
 
       // Immortal Golden Halo behind head
       ctx.strokeStyle = '#e9c46a';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.2;
       ctx.beginPath();
-      ctx.arc(0, -9, 17, 0, Math.PI * 2);
+      ctx.arc(0, -9, 18, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Flowing Guofeng Robe Body
+      // Layered Guofeng Daoist Robes
       ctx.fillStyle = player.hitFlash > 0 ? '#ffffff' : '#15343d';
       ctx.strokeStyle = '#f4e4bc';
       ctx.lineWidth = 2.2;
       ctx.beginPath();
-      ctx.moveTo(-15, 14);
-      ctx.quadraticCurveTo(-18, -4, 0, -14);
-      ctx.quadraticCurveTo(18, -4, 15, 14);
+      ctx.moveTo(-16, 15);
+      ctx.quadraticCurveTo(-19, -4, 0, -15);
+      ctx.quadraticCurveTo(19, -4, 16, 15);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Cultivator Head & Jade Crown
+      // Gold Sash & Robe Lapel V-Collar
+      ctx.strokeStyle = '#d4af6a';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(-7, -8);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(7, -8);
+      ctx.moveTo(-13, 4);
+      ctx.lineTo(13, 4);
+      ctx.stroke();
+
+      // Cultivator Head & Topknot Jade Hairpin Crown
       ctx.fillStyle = '#f4e4bc';
       ctx.beginPath();
-      ctx.arc(0, -6, 8.5, 0, Math.PI * 2);
+      ctx.arc(0, -7, 8.5, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#2ec4b6';
+      ctx.strokeStyle = '#e9c46a';
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.roundRect(-5, -17, 10, 5, 2);
+      ctx.roundRect(-5.5, -18, 11, 5.5, 2);
       ctx.fill();
+      ctx.stroke();
       ctx.restore();
 
-      // Render Projectiles
+      // Render Projectiles with Luminous Sword-Qi Ribbon Trails
       for (let i = 0; i < MAX_PROJECTILES; i++) {
         const pr = projectiles[i];
         if (!pr.active) continue;
+
+        // Ribbon Afterimage Trail
+        ctx.save();
+        ctx.strokeStyle = pr.fromPlayer ? 'rgba(46, 196, 182, 0.45)' : 'rgba(247, 37, 133, 0.4)';
+        ctx.lineWidth = pr.radius * 1.15;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pr.prevX, pr.prevY);
+        ctx.lineTo(pr.x, pr.y);
+        ctx.stroke();
+        ctx.restore();
+
         ctx.save();
         ctx.translate(pr.x, pr.y);
         ctx.rotate(Math.atan2(pr.vy, pr.vx));
         ctx.fillStyle = pr.color;
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.3;
         ctx.beginPath();
         if (pr.fromPlayer) {
-          ctx.moveTo(pr.radius * 2.0, 0);
-          ctx.lineTo(-pr.radius, pr.radius * 0.8);
-          ctx.lineTo(-pr.radius * 0.45, 0);
-          ctx.lineTo(-pr.radius, -pr.radius * 0.8);
+          // Immortal Flying Sword Blade + Crescent Qi Wave
+          ctx.moveTo(pr.radius * 2.3, 0);
+          ctx.lineTo(-pr.radius, pr.radius * 0.85);
+          ctx.lineTo(-pr.radius * 0.4, 0);
+          ctx.lineTo(-pr.radius, -pr.radius * 0.85);
           ctx.closePath();
         } else {
           ctx.arc(0, 0, pr.radius, 0, Math.PI * 2);
@@ -1846,6 +2208,18 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
         ctx.stroke();
         ctx.restore();
       }
+
+      // Drifting Foreground Ink-Wash Mist Clouds (Vân Vũ Thủy Mặc)
+      ctx.save();
+      ctx.fillStyle = 'rgba(168, 218, 220, 0.045)';
+      for (let m = 0; m < 6; m++) {
+        const mx = Math.cos(m * 1.1 + runState.elapsedTime * 0.05) * 340;
+        const my = Math.sin(m * 1.4 + runState.elapsedTime * 0.04) * 260;
+        ctx.beginPath();
+        ctx.ellipse(mx, my, 155, 46, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
 
       // Render Pooled Particles
       for (let i = 0; i < MAX_PARTICLES; i++) {
@@ -1870,7 +2244,7 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
         ctx.globalAlpha = Math.max(0, Math.min(1, (ft.life / ft.maxLife) * 1.4));
         ctx.font = `700 ${Math.round(13 * ft.scale)}px "JetBrains Mono", monospace`;
         ctx.strokeStyle = '#05080b';
-        ctx.lineWidth = 3.2;
+        ctx.lineWidth = 3.4;
         ctx.strokeText(ft.text, ft.x, ft.y);
         ctx.fillStyle = ft.color;
         ctx.fillText(ft.text, ft.x, ft.y);
@@ -1906,7 +2280,7 @@ export const CanvasArena: React.FC<CanvasArenaProps> = ({
       renderScene();
       timerId = window.setTimeout(() => {
         rafId = requestAnimationFrame(loop);
-      }, 4);
+      }, 18);
     };
 
     rafId = requestAnimationFrame(loop);

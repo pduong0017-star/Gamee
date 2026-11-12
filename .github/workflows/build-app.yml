@@ -21,12 +21,32 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install dependencies & Run Unit Tests
+      - name: Normalize package.json versions for public npm & Install dependencies
         run: |
-          npm install
-          npx --yes tsx --test src/game/rules.test.ts
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const pinMap = {
+              "@google/genai": "latest",
+              "@tailwindcss/vite": "latest",
+              "@vitejs/plugin-react": "latest",
+              "tailwindcss": "latest",
+              "vite": "latest",
+              "typescript": "latest",
+              "@types/react": "latest",
+              "@types/react-dom": "latest"
+            };
+            for (const [k, v] of Object.entries(pinMap)) {
+              if (pkg.dependencies && pkg.dependencies[k]) pkg.dependencies[k] = v;
+              if (pkg.devDependencies && pkg.devDependencies[k]) pkg.devDependencies[k] = v;
+            }
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+          '
+          npm install --legacy-peer-deps
+
+      - name: Run Pure Logic Unit Tests
+        run: npx --yes tsx --test src/game/rules.test.ts
 
       - name: Build Production Web & PWA Bundle
         run: npm run build
@@ -46,15 +66,26 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Package Android APK via Capacitor
+      - name: Package Landscape Android APK via Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
-          npx cap add android || true
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest --save --legacy-peer-deps
+          npx cap add android
           npx cap sync android
+          node -e '
+            const fs = require("fs");
+            const manifestPath = "android/app/src/main/AndroidManifest.xml";
+            if (fs.existsSync(manifestPath)) {
+              let xml = fs.readFileSync(manifestPath, "utf8");
+              xml = xml.replace("<activity", "<activity android:screenOrientation=\"sensorLandscape\"");
+              fs.writeFileSync(manifestPath, xml);
+            }
+          '
           cd android && chmod +x gradlew && ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../nhat-niem-vo-cuc-android.apk
 
-      - name: Upload Android APK Artifact (nhat-niem-vo-cuc-debug.apk)
+      - name: Upload Android APK Artifact (nhat-niem-vo-cuc-android.apk)
         uses: actions/upload-artifact@v4
         with:
           name: nhat-niem-vo-cuc-android-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: nhat-niem-vo-cuc-android.apk
+

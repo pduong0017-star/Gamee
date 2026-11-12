@@ -12,6 +12,9 @@ import {
   canCraftPill,
   getManualUpgradeCost,
   getArtifactUpgradeCost,
+  STORY_CHAPTERS,
+  getChapterProgress,
+  computeCombatPower,
   screenToWorld,
 } from './rules';
 
@@ -70,9 +73,25 @@ test('calculateBreakthroughChance, getManualUpgradeCost, and getArtifactUpgradeC
   assert.equal(artCost.coreCost >= 1, true);
 });
 
+test('getChapterProgress and computeCombatPower evaluate story chapters and cultivation rating', () => {
+  const ch1 = STORY_CHAPTERS[0];
+  const partial = getChapterProgress(ch1, { kills: 1, pillsCrafted: 0, realmIndex: 0, artifactsUnlocked: 2 });
+  assert.equal(partial.completed, false);
+  assert.equal(partial.pct, 33);
+
+  const done = getChapterProgress(ch1, { kills: 5, pillsCrafted: 0, realmIndex: 0, artifactsUnlocked: 2 });
+  assert.equal(done.completed, true);
+  assert.equal(done.pct, 100);
+
+  const stats = computeCultivatorStats(0, 'kiem_tu', INITIAL_MANUALS, 0, 1, INITIAL_ARTIFACTS);
+  const cp = computeCombatPower(stats);
+  assert.equal(cp > 1000, true);
+});
+
 test('screenToWorld projects viewport coordinates relative to canvas center and camera', () => {
   const rect = { left: 0, top: 0, width: 1440, height: 900 };
   const centerProj = screenToWorld(720, 450, rect, 100, -50);
   assert.equal(centerProj.worldX, 100);
   assert.equal(centerProj.worldY, -50);
 });
+

@@ -2,7 +2,6 @@
   "appId": "com.nhatniemvocuc.tutien",
   "appName": "Nhất Niệm Vô Cực",
   "webDir": "dist",
-  "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https"
   },

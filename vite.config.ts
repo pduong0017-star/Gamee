@@ -6,6 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
+    base: './',
     plugins: [
       react(),
       tailwindcss(),
@@ -17,6 +18,9 @@ export default defineConfig(() => {
           'pwa-192x192.png',
           'pwa-512x512.png',
           'pwa-maskable-512x512.png',
+          'images/title_bg.jpg',
+          'images/cultivator_avatar.jpg',
+          'images/alchemy_cauldron.jpg',
         ],
         manifest: {
           id: '/',

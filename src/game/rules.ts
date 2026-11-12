@@ -628,6 +628,140 @@ export function getArtifactUpgradeCost(artifact: ImmortalArtifact): {
   };
 }
 
+export interface StoryChapter {
+  index: number;
+  id: string;
+  chapterCode: string;
+  title: string;
+  npcName: string;
+  npcTitle: string;
+  dialogue: string;
+  objectiveLabel: string;
+  metric: 'kills' | 'pillsCrafted' | 'realmIndex' | 'artifactsUnlocked';
+  targetValue: number;
+  rewardStones: number;
+  rewardHerbs: number;
+  rewardCores: number;
+  rewardQi: number;
+}
+
+export const STORY_CHAPTERS: StoryChapter[] = [
+  {
+    index: 0,
+    id: 'ch_1_ngo_dao',
+    chapterCode: 'Chương I',
+    title: 'Phàm Trần Ngộ Đạo',
+    npcName: 'Thanh Vân Tử',
+    npcTitle: 'Chưởng Môn Sư Tôn',
+    dialogue:
+      'Đạo hữu vừa bước vào Thanh Vân Bí Cảnh, linh căn mới thức tỉnh nhưng yêu thú ngoại vi đã rình rập. Hãy vận chuyển bản mệnh phi kiếm, trảm 3 đầu Yêu Thú để chứng minh đạo tâm kiên định!',
+    objectiveLabel: 'Trảm diệt 3 Yêu Thú tại Bí Cảnh',
+    metric: 'kills',
+    targetValue: 3,
+    rewardStones: 90,
+    rewardHerbs: 3,
+    rewardCores: 1,
+    rewardQi: 120,
+  },
+  {
+    index: 1,
+    id: 'ch_2_dan_hoa',
+    chapterCode: 'Chương II',
+    title: 'Đan Hỏa Khai Lô',
+    npcName: 'Đan Dương Tử',
+    npcTitle: 'Thái Thượng Đan Phòng',
+    dialogue:
+      'Tu tiên nghịch thiên, chỉ dựa vào thổ nạp linh khí thì biết bao giờ mới trúc cơ? Hãy mở Đan Phòng (Ngọc Giản bên dưới), khai mở Cửu Long Đan Lô luyện chế viên Tiên Đan đầu tiên!',
+    objectiveLabel: 'Luyện chế 1 viên Tiên Đan tại Đan Phòng',
+    metric: 'pillsCrafted',
+    targetValue: 1,
+    rewardStones: 110,
+    rewardHerbs: 4,
+    rewardCores: 2,
+    rewardQi: 160,
+  },
+  {
+    index: 2,
+    id: 'ch_3_co_bao',
+    chapterCode: 'Chương III',
+    title: 'Tế Luyện Cổ Bảo',
+    npcName: 'Khí Đạo Chân Nhân',
+    npcTitle: 'Trấn Thủ Bảo Các',
+    dialogue:
+      'Pháp bảo thông linh, thần thú hộ đạo! Hãy vào ngăn Pháp Bảo để tế luyện Thanh Vân Tử Điện Kiếm hoặc Huyền Hỏa Kỳ Lân đạt tổng cộng 3 bậc trở lên.',
+    objectiveLabel: 'Đạt tổng cấp Pháp Bảo & Linh Thú ≥ 3',
+    metric: 'artifactsUnlocked',
+    targetValue: 3,
+    rewardStones: 150,
+    rewardHerbs: 5,
+    rewardCores: 2,
+    rewardQi: 220,
+  },
+  {
+    index: 3,
+    id: 'ch_4_do_kiep',
+    chapterCode: 'Chương IV',
+    title: 'Nghịch Thiên Độ Kiếp',
+    npcName: 'Thiên Cơ Lão Nhân',
+    npcTitle: 'Giám Thiên Bí Các',
+    dialogue:
+      'Linh khí trong đan điền đã cuồn cuộn như biển lớn! Khi thanh Tu Vi đạt đỉnh, hãy ấn nút Độ Kiếp để dẫn Cửu Trọng Thiên Lôi tôi luyện chân thân, bước lên cảnh giới Luyện Khí Viên Mãn!',
+    objectiveLabel: 'Độ Kiếp đột phá lên Luyện Khí · Viên Mãn',
+    metric: 'realmIndex',
+    targetValue: 1,
+    rewardStones: 220,
+    rewardHerbs: 6,
+    rewardCores: 3,
+    rewardQi: 320,
+  },
+  {
+    index: 4,
+    id: 'ch_5_yeu_vuong',
+    chapterCode: 'Chương V',
+    title: 'Huyết Chiến Yêu Vương',
+    npcName: 'Thanh Vân Tử',
+    npcTitle: 'Chưởng Môn Sư Tôn',
+    dialogue:
+      'Cửu U Yêu Vương đã thức tỉnh nơi tâm mạch Bí Cảnh! Hãy triệu hồi Yêu Vương hoặc càn quét đủ 12 Yêu Thú để trấn áp ma kiếp, mở đường đại đạo phi thăng!',
+    objectiveLabel: 'Trảm diệt tổng cộng 12 Yêu Thú & Yêu Vương',
+    metric: 'kills',
+    targetValue: 12,
+    rewardStones: 380,
+    rewardHerbs: 8,
+    rewardCores: 5,
+    rewardQi: 550,
+  },
+];
+
+export function getChapterProgress(
+  chapter: StoryChapter,
+  metrics: { kills: number; pillsCrafted: number; realmIndex: number; artifactsUnlocked: number }
+): { current: number; target: number; completed: boolean; pct: number } {
+  const current = Math.max(0, metrics[chapter.metric] ?? 0);
+  const target = Math.max(1, chapter.targetValue);
+  const completed = current >= target;
+  const pct = Math.min(100, Math.round((current / target) * 100));
+  return { current, target, completed, pct };
+}
+
+export function computeCombatPower(stats: {
+  maxHp: number;
+  attack: number;
+  defense: number;
+  passiveQiPerSec: number;
+  critChancePct: number;
+  lifeStealPct: number;
+}): number {
+  return Math.round(
+    stats.attack * 12 +
+      stats.defense * 9 +
+      stats.maxHp * 1.6 +
+      stats.passiveQiPerSec * 15 +
+      stats.critChancePct * 18 +
+      stats.lifeStealPct * 22
+  );
+}
+
 export function screenToWorld(
   clientX: number,
   clientY: number,
@@ -644,3 +778,4 @@ export function screenToWorld(
     worldY: cameraY + localY,
   };
 }
+

@@ -9,10 +9,12 @@ import {
   ImmortalManual,
   PillRecipe,
   REALMS,
+  STORY_CHAPTERS,
   calculateBreakthroughChance,
   canCraftPill,
   computeCultivatorStats,
   getArtifactUpgradeCost,
+  getChapterProgress,
   getManualUpgradeCost,
 } from './game/rules';
 import { audio } from './game/audio';
@@ -49,6 +51,8 @@ export default function App() {
   const [artifacts, setArtifacts] = useState<ImmortalArtifact[]>(INITIAL_ARTIFACTS);
   const [quests, setQuests] = useState<CultivationQuest[]>(INITIAL_QUESTS);
   const [pillsCraftedCount, setPillsCraftedCount] = useState<number>(0);
+  const [chapterIndex, setChapterIndex] = useState<number>(0);
+  const [allChaptersDone, setAllChaptersDone] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<DrawerTabId>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [endSummary, setEndSummary] = useState<EndOfRunSnapshot | null>(null);
@@ -105,17 +109,65 @@ export default function App() {
     bossName: null,
   }));
 
+  const totalArtifactLevels = useMemo(
+    () => artifacts.reduce((acc, a) => acc + a.level, 0),
+    [artifacts]
+  );
+
+  const storyMetrics = useMemo(
+    () => ({
+      kills: hud.kills,
+      pillsCrafted: pillsCraftedCount,
+      realmIndex,
+      artifactsUnlocked: totalArtifactLevels,
+    }),
+    [hud.kills, pillsCraftedCount, realmIndex, totalArtifactLevels]
+  );
+
+  const currentChapter = STORY_CHAPTERS[Math.min(STORY_CHAPTERS.length - 1, chapterIndex)];
+
+  const handleClaimChapter = useCallback(() => {
+    if (allChaptersDone) return;
+    const prog = getChapterProgress(currentChapter, storyMetrics);
+    if (!prog.completed) return;
+
+    arenaCommandRef.current?.addResources(
+      currentChapter.rewardStones,
+      currentChapter.rewardHerbs,
+      currentChapter.rewardCores,
+      currentChapter.rewardQi
+    );
+    audio.playBreakthroughFanfare();
+
+    if (chapterIndex + 1 < STORY_CHAPTERS.length) {
+      setChapterIndex((idx) => idx + 1);
+    } else {
+      setAllChaptersDone(true);
+    }
+  }, [allChaptersDone, currentChapter, storyMetrics, chapterIndex]);
+
   const unclaimedQuestCount = useMemo(() => {
-    const totalArtLevels = artifacts.reduce((acc, a) => acc + a.level, 0);
-    return quests.filter((q) => {
+    const questReadyCount = quests.filter((q) => {
       if (q.claimed) return false;
       if (q.metric === 'kills') return hud.kills >= q.targetValue;
       if (q.metric === 'pillsCrafted') return pillsCraftedCount >= q.targetValue;
       if (q.metric === 'realmIndex') return realmIndex >= q.targetValue;
-      if (q.metric === 'artifactsUnlocked') return totalArtLevels >= q.targetValue;
+      if (q.metric === 'artifactsUnlocked') return totalArtifactLevels >= q.targetValue;
       return false;
     }).length;
-  }, [quests, hud.kills, pillsCraftedCount, realmIndex, artifacts]);
+    const chapterReady =
+      !allChaptersDone && getChapterProgress(currentChapter, storyMetrics).completed ? 1 : 0;
+    return questReadyCount + chapterReady;
+  }, [
+    quests,
+    hud.kills,
+    pillsCraftedCount,
+    realmIndex,
+    totalArtifactLevels,
+    allChaptersDone,
+    currentChapter,
+    storyMetrics,
+  ]);
 
   useEffect(() => {
     document.body.dataset.state = gameState;
@@ -351,6 +403,11 @@ export default function App() {
             computedStats={computedStats}
             breakthroughChance={breakthroughChance}
             unclaimedQuestCount={unclaimedQuestCount}
+            currentChapter={currentChapter}
+            allChaptersDone={allChaptersDone}
+            storyMetrics={storyMetrics}
+            onClaimChapter={handleClaimChapter}
+            onSummonBoss={() => arenaCommandRef.current?.summonBoss()}
             activeTab={activeTab}
             onSelectTab={setActiveTab}
             onTriggerSkill={(skill) => arenaCommandRef.current?.triggerSkill(skill)}
@@ -376,6 +433,10 @@ export default function App() {
             computedStats={computedStats}
             spiritualRootLevel={spiritualRootLevel}
             breakthroughChance={breakthroughChance}
+            currentChapter={currentChapter}
+            allChaptersDone={allChaptersDone}
+            onClaimChapter={handleClaimChapter}
+            onSummonBoss={() => arenaCommandRef.current?.summonBoss()}
             manuals={manuals}
             artifacts={artifacts}
             quests={quests}

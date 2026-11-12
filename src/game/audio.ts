@@ -2,10 +2,23 @@
 
 class XianxiaAudioEngine {
   private ctx: AudioContext | null = null;
+  private hasUserGesture: boolean = false;
   public isMuted: boolean = false;
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      const unlock = () => {
+        this.hasUserGesture = true;
+        window.removeEventListener('pointerdown', unlock);
+        window.removeEventListener('keydown', unlock);
+      };
+      window.addEventListener('pointerdown', unlock, { passive: true });
+      window.addEventListener('keydown', unlock, { passive: true });
+    }
+  }
+
   private getContext(): AudioContext | null {
-    if (this.isMuted || typeof window === 'undefined') return null;
+    if (this.isMuted || !this.hasUserGesture || typeof window === 'undefined') return null;
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
